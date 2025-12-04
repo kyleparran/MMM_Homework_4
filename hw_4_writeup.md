@@ -4,13 +4,11 @@
 
 ### Experimental setup (brief)
 
-- **Tickers:** 0050, 0056, 2330
-- **Training months:** 2023-10, 2023-11, 2023-12
-- **Hyperparameters (per ticker):**
-  - 0050: lr_G = 0.00375, lr_D = 0.00100
-  - 0056: lr_G = 0.00375, lr_D = 0.00100
-  - 2330: lr_G = 0.00300, lr_D = 0.00100
-  - Batch size: 50; epochs: 200; seed: 307
+| Ticker | Training months        | lr_G   | lr_D   | Batch size | Epochs | Seed |
+|--------|------------------------|--------|--------|------------|--------|------|
+| 0050   | 2023-10, 2023-11, 2023-12 | 0.00375 | 0.00100 | 50         | 200    | 307  |
+| 0056   | 2023-10, 2023-11, 2023-12 | 0.00375 | 0.00100 | 50         | 200    | 307  |
+| 2330   | 2023-10, 2023-11, 2023-12 | 0.00300 | 0.00100 | 50         | 200    | 307  |
 
 The learning rates were tuned to get stable, non-divergent adversarial training; 2330 uses a slightly lower generator rate because higher rates produced more unstable losses.
 
@@ -18,15 +16,11 @@ The learning rates were tuned to get stable, non-divergent adversarial training;
 
 From the loss CSVs for each ticker, the trajectories look numerically as follows:
 
-- **0050:**
-  - `train_g` decreases from about **1.29** at the start to **≈1.08** by the final column, while `eval_g` decreases from **≈1.12** down to **≈0.98**.
-  - `train_d` and `eval_d` start very close to **0.25** and drift down to the **0.19–0.23** range.
-- **0056:**
-  - `train_g` starts near **1.11**, dips toward **≈0.79–0.81** late in training, and `eval_g` moves from **≈0.98** down to **≈0.66–0.72**.
-  - `train_d` begins around **0.25** and climbs into the **0.22–0.30** range, with some variability; `eval_d` also drifts upward into the **0.25–0.29** band.
-- **2330:**
-  - `train_g` moves from **≈0.48** down to the **≈0.18–0.20** region late in training; `eval_g` decreases from **≈0.49** early on to **≈0.22–0.26** in the later columns.
-  - `train_d` and `eval_d` start near **0.25** and gradually increase toward **≈0.29–0.30** in the later part of training.
+| Ticker | train_g (start → end) | eval_g (start → end) | train_d (start → end) | eval_d (start → end) | Interpretation |
+|--------|------------------------|-----------------------|------------------------|-----------------------|----------------|
+| 0050   | 1.29 → ≈1.08           | ≈1.12 → ≈0.98         | ≈0.25 → 0.19–0.23      | ≈0.25 → 0.19–0.23     | Smooth decline in generator losses and small drop in discriminator losses suggest a stable training regime without mode collapse or divergence. |
+| 0056   | ≈1.11 → 0.79–0.81      | ≈0.98 → 0.66–0.72     | ≈0.25 → 0.22–0.30      | ≈0.25 → 0.25–0.29     | Generator losses fall more sharply while discriminator losses drift slightly upward, indicating the discriminator remains competitive but does not overpower the generator. |
+| 2330   | ≈0.48 → 0.18–0.20      | ≈0.49 → 0.22–0.26     | ≈0.25 → 0.29–0.30      | ≈0.25 → 0.29–0.30     | Generator losses drop substantially and discriminator losses rise modestly, consistent with a stronger generator that still faces a non-trivial discriminator. |
 
 Across all three tickers, losses evolve smoothly (no spikes to huge values or collapses to 0), and generator losses move from higher initial levels into lower, more stable ranges. Discriminator losses shift from their initial 0.25 baseline into new but still moderate bands, indicating that the adversarial game has settled into a reasonably stable regime rather than diverging.
 
