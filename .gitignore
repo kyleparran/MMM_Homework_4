@@ -1,0 +1,14 @@
+.env
+data/
+assignment4_datafiles/
+cache/
+q1_notebook_outputs/
+q2_notebook_outputs/
+q3_notebook_outputs/
+*.pth
+*.pkl
+*.npz
+*.png
+*.csv
+__pycache__/
+.ipynb_checkpoints/
