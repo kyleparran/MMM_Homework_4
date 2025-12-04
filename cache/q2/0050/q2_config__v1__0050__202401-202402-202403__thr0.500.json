@@ -1,0 +1,13 @@
+{
+  "config_hash": "cad25849cc476c4a",
+  "data_dir": "C:\\Users\\kylep\\Desktop\\Homework Autumn 2025\\Market Micro\\hw_4\\assignment4_datafiles",
+  "discriminator_path": "C:\\Users\\kylep\\Desktop\\Homework Autumn 2025\\Market Micro\\hw_4\\q1_notebook_outputs\\0050\\0050_discriminator1.pth",
+  "feature_version": "v1",
+  "months": [
+    "202401",
+    "202402",
+    "202403"
+  ],
+  "threshold": 0.5,
+  "ticker": "0050"
+}

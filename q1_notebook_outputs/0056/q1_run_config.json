@@ -1,0 +1,17 @@
+{
+  "batch_size": 50,
+  "config_hash": "9e9948e3b9db3d0a",
+  "data_dir": "C:\\Users\\kylep\\Desktop\\Homework Autumn 2025\\Market Micro\\hw_4\\assignment4_datafiles",
+  "epochs": 200,
+  "lr_d": 0.001,
+  "lr_g": 0.00375,
+  "seed": 307,
+  "testing_script": "C:\\Users\\kylep\\Desktop\\Homework Autumn 2025\\Market Micro\\hw_4\\LOB_GAN_testing.py",
+  "ticker": "0056",
+  "train_months": [
+    "202310",
+    "202311",
+    "202312"
+  ],
+  "training_script": "C:\\Users\\kylep\\Desktop\\Homework Autumn 2025\\Market Micro\\hw_4\\LOB_GAN_training.py"
+}
