@@ -16,29 +16,28 @@ The learning rates were tuned to get stable, non-divergent adversarial training;
 
 ### Training behavior (loss curves)
 
-Across all three tickers, the generator and discriminator loss curves behave as follows:
+Using the CSVs in `q1_notebook_outputs/<ticker>/*_train_g_d.csv` and `*_eval_g_d.csv`, the loss trajectories look numerically as follows:
 
-- Both losses fluctuate but remain within a relatively stable band after an initial transient.
-- Neither loss explodes nor collapses to zero; instead, they oscillate around moderate values, consistent with a rough adversarial equilibrium.
-- Smoothed generator loss curves (e.g., rolling mean with window 25) do not show a sustained upward or downward drift, suggesting that training does not systematically deteriorate.
+- **0050:**
+  - `train_g` decreases from about **1.29** at the start to **≈1.08** by the final column, while `eval_g` decreases from **≈1.12** down to **≈0.98**.
+  - `train_d` and `eval_d` start very close to **0.25** and drift down to the **0.19–0.23** range.
+- **0056:**
+  - `train_g` starts near **1.11**, dips toward **≈0.79–0.81** late in training, and `eval_g` moves from **≈0.98** down to **≈0.66–0.72**.
+  - `train_d` begins around **0.25** and climbs into the **0.22–0.30** range, with some variability; `eval_d` also drifts upward into the **0.25–0.29** band.
+- **2330:**
+  - `train_g` moves from **≈0.48** down to the **≈0.18–0.20** region late in training; `eval_g` decreases from **≈0.49** early on to **≈0.22–0.26** in the later columns.
+  - `train_d` and `eval_d` start near **0.25** and gradually increase toward **≈0.29–0.30** in the later part of training.
 
-Per-ticker behavior:
-
-- **0050:** Losses are comparatively smooth. The discriminator does not dominate for long stretches, and the generator retains enough capacity to keep learning. This indicates a well-balanced game.
-- **0056:** Similar to 0050 but with slightly more volatility in the discriminator loss. The system remains stable, with no evidence of collapse.
-- **2330:** With the lower generator learning rate, the generator loss is smoother than in higher-rate experiments, and the discriminator still provides a clear learning signal.
-
-Overall, the loss dynamics suggest that the GANs learn reasonable approximations to the LOB dynamics for all three stocks, without obvious training pathologies such as divergence, vanishing gradients, or hard mode collapse.
+Across all three tickers, losses evolve smoothly (no spikes to huge values or collapses to 0), and generator losses move from higher initial levels into lower, more stable ranges. Discriminator losses shift from their initial 0.25 baseline into new but still moderate bands, indicating that the adversarial game has settled into a reasonably stable regime rather than diverging.
 
 ### Distributional behavior of returns
 
-From the return-comparison figures (real vs synthetic):
+From the return-comparison figures (real vs synthetic) in `q1_notebook_outputs/<ticker>/<ticker>_return.png`:
 
-- Synthetic return histograms broadly match the shape and scale of the empirical return distributions.
-- In several cases, synthetic tails are somewhat lighter, indicating that the generator under-represents extreme intraday returns.
-- There is no clear sign of mode collapse: the synthetic return distributions are spread out rather than concentrated in a few spikes.
+- For 0050 and 0056, synthetic intraday returns cluster in roughly the same **±0.5%–1%** region as the real returns, with only slightly lighter tails.
+- For 2330, the synthetic distribution again matches the bulk (central mass) of the empirical distribution but appears to under-represent the most extreme positive and negative returns.
 
-Interpretation: the GAN captures the first-order behavior of returns (location and scale) reasonably well, but it is less accurate in reproducing rare, large moves. This is consistent with many GAN applications, where tail events are harder to learn from finite data.
+Interpretation: the GAN captures the first-order behavior of returns (location and scale) reasonably well for all three tickers, but it is less accurate in reproducing rare, large moves. This is consistent with many GAN applications, where tail events are difficult to learn from finite samples.
 
 ---
 
@@ -51,7 +50,8 @@ The trained discriminator assigns a scalar score to each trading day’s 265×20
 - Days with scores ≤ 0.5 are labeled **abnormal**.
 - Days with scores > 0.5 are labeled **normal**.
 
-On top of this labeling, we look at minute-level microstructure variables and compare their empirical distributions across abnormal vs normal days.
+On top of this labeling, we look at minute-level microstructure variables and compare their empirical distributions across abnormal vs normal days. The per-ticker and combined summaries are written to
+`q2_notebook_outputs/q2_all_tickers_summary.csv`.
 
 ### Microstructure variables
 
@@ -66,35 +66,55 @@ For each minutely snapshot, the following variables are examined:
 - **Order-flow pressure at levels 1–5:** 
   (∑ BVi − ∑ SVi) / (∑ BVi + ∑ SVi) over levels i = 1,…,5.
 
-We then compute moments (mean, variance, skewness, kurtosis) and two-sample KS statistics for abnormal vs normal days, aggregated by ticker.
+Moments and KS statistics comparing abnormal vs normal days for each of these appear as rows in
+`q2_all_tickers_summary.csv`.
 
 ### Interpretation of abnormal vs normal days
 
-Key patterns visible in the summary statistics and KS results:
+Key patterns from `q2_all_tickers_summary.csv` can be summarized as follows.
 
-1. **Return-related variables**
-   - Abnormal days typically exhibit **higher return variance** and more pronounced tails (larger absolute skewness and kurtosis) than normal days.
-   - KS tests for trade and midquote returns often show sizable statistics and small p-values, indicating a genuine distributional shift.
-   - Interpretation: the discriminator tends to flag days with more volatile and more extreme intraday price paths as abnormal.
+**Returns (variance and KS tests)**
 
-2. **Bid-ask spread and spread changes**
-   - On abnormal days, average spreads are often **wider**, and spread variance is higher.
-   - First differences of the spread are more volatile, suggesting unstable liquidity conditions.
-   - Interpretation: abnormal days correspond to periods when liquidity is more expensive and less stable, in line with the economic intuition that unusual conditions often coincide with higher transaction costs.
+| Ticker | Variable              | Abn. var          | Norm. var         | KS stat | KS p‑value      |
+|--------|-----------------------|-------------------|-------------------|---------|-----------------|
+| 50     | trade_price_returns   | 2.14×10⁻⁷         | 1.87×10⁻⁷         | 0.165   | 1.2×10⁻⁶        |
+| 2330   | trade_price_returns   | 9.88×10⁻⁷         | 1.09×10⁻⁶         | 0.103   | 3.8×10⁻⁵        |
 
-3. **Trade size**
-   - Differences in trade size distributions between abnormal and normal days are less systematic across tickers than for returns or spreads.
-   - For some stocks, abnormal days show heavier right tails in trade size, consistent with bursts of large orders or block trades.
+These rows show that the return distributions on abnormal days differ measurably from those on normal days, mainly via changes in variance and tails, with KS tests strongly rejecting equality.
 
-4. **Order-flow pressure (level 1 and 5)**
-   - Pressure metrics on abnormal days show more dispersion and sometimes more skewness, indicating that one-sided order-flow episodes (strong buying or selling dominance) are more common.
-   - KS tests frequently detect differences in the pressure distributions between abnormal and normal days.
+**Spreads**
+
+| Ticker | Variable        | Abn. mean | Norm. mean | KS stat | KS p‑value |
+|--------|-----------------|-----------|------------|---------|-----------:|
+| 50     | bid_ask_spread  | 0.0696    | 0.0675     | 0.042   | 0.74       |
+| 56     | bid_ask_spread  | 0.0108    | 0.0125     | 0.107   | 0.005      |
+
+For 56, abnormal days exhibit a clearly different spread distribution (despite a slightly smaller mean), while for 50 the mean difference is smaller and the KS test is not significant.
+
+**Trade size (means and KS tests)**
+
+| Ticker | Abn. mean size | Norm. mean size | KS stat | KS p‑value |
+|--------|----------------|-----------------|---------|-----------:|
+| 50     | 238            | 722             | 0.019   | ≈1.0       |
+| 56     | 8,713          | 2,279           | 0.033   | 0.93       |
+
+Trade size is extremely heavy‑tailed in both groups; even with large mean differences, the KS tests indicate that size alone does not sharply separate abnormal from normal days.
+
+**Order‑flow pressure (level 1 and 5)**
+
+| Ticker | Variable          | Abn. mean | Norm. mean | KS stat | KS p‑value    |
+|--------|-------------------|-----------|------------|---------|--------------:|
+| 50     | pressure_level_5  | 0.107     | 0.060      | 0.167   | 8.2×10⁻⁷      |
+| 56     | pressure_level_1  | 0.125     | −0.143     | 0.195   | 4.0×10⁻⁹      |
+| 2330   | pressure_level_5  | 0.046     | −0.138     | 0.376   | 2.1×10⁻⁶⁵     |
+
+Order‑flow pressure metrics show some of the strongest differences between abnormal and normal days: means often change sign or magnitude substantially, and KS p‑values are extremely small, especially for 2330.
 
 Overall, abnormal days, as identified by the discriminator, tend to be those with:
 
-- More volatile intraday prices,
-- Wider and more volatile spreads, and
-- Stronger and more erratic order-flow imbalances.
+- Measurably different return dynamics (variance and tails),
+- Distinct spread distributions for some tickers, and
+- Very pronounced changes in order-flow pressure, particularly at the 5-level aggregate.
 
 These properties are economically plausible characteristics of “unusual” trading days, reinforcing the idea that the discriminator is capturing meaningful deviations from typical market conditions rather than pure noise.
 
@@ -106,63 +126,55 @@ These properties are economically plausible characteristics of “unusual” tra
 
 The generator is evaluated by comparing **real vs synthetic order books** at both the day and snapshot levels, for the test months 2024-01 to 2024-03 and all three tickers.
 
-The comparisons include:
+The empirical basis for the discussion here is:
 
-- Intraday time series of spreads and order-flow pressures (1-level and 5-level).
-- Depth curves (cumulative volume vs price) constructed from 5-level quote and volume data for selected minutes (e.g., open, midday, close).
-- Simple structural diagnostics quantifying how often key consistency constraints are violated (crossed quotes, negative volumes, non-monotone price ladders).
+- Time-series plots in `q3_notebook_outputs/<ticker>/*_<date>_timeseries.png`.
+- Depth-curve snapshots in `q3_notebook_outputs/<ticker>/*_<date>_snapshot_*.png`.
+- Structural diagnostics summarized in `q3_notebook_outputs/q3_synthetic_quality_diagnostics.csv`.
 
 ### Visual diagnostics: spreads, pressures, and depth
 
-From the representative days and snapshots examined:
+From the representative days and snapshots examined in `q3_notebook_outputs/`:
 
 - **Spreads:**
-  - Synthetic spreads are of similar magnitude to real spreads and broadly follow intraday patterns such as wider spreads near the open and close, with narrower spreads mid-session.
-  - Fine-grained microstructure (short-lived spikes or micro-crashes in liquidity) tends to be smoother in the synthetic series, indicating that very transient events are not perfectly captured.
+  - For 0050, on days like **2024-01-02** and **2024-03-29**, synthetic spreads are of similar magnitude to real spreads and broadly follow intraday patterns such as higher spreads near the open and close and narrower spreads mid-session.
+  - For 0056 and 2330, the same qualitative pattern holds, but the synthetic series are visibly smoother, with fewer abrupt jumps.
 
 - **Order-flow pressures:**
-  - Real and synthetic pressure_1 and pressure_5 series occupy similar ranges and show comparable levels of volatility.
-  - The generator reproduces broad swings between buy- and sell-dominant order flow, even if the exact timing and amplitude of swings differ from the real series (as expected for a generative model).
+  - Real and synthetic pressure_1 and pressure_5 series occupy similar numeric ranges and show comparable volatility across the 265 minutes.
+  - The generator reproduces broad swings between buy- and sell-dominant order flow, though the timing and exact amplitudes of swings do not match one-for-one.
 
 - **Depth curves:**
-  - For most snapshots, synthetic bid and ask depth curves have realistic shapes: cumulative volume increases with distance from the midprice, and price levels form reasonable ladders on each side.
-  - Differences tend to be in the fine details of volume steps and exact level spacing, rather than in gross structural features.
+  - For most snapshots (e.g., minute 0, 132, and 264 on 0050-2024-01-02), synthetic bid and ask depth curves have realistic shapes: cumulative volume increases smoothly with distance from the midprice, and price levels are ordered as expected on each side.
 
 ### Structural diagnostics
 
-Simple structural metrics computed on the synthetic books show:
+The file `q3_synthetic_quality_diagnostics.csv` quantifies key structural properties for three representative days per ticker:
 
-- **Crossed books (best bid ≥ best ask):** fractions are essentially zero for the sampled days, meaning the generator almost never produces obviously invalid quotes.
-- **Negative volumes:** the share of negative volume entries is also near zero, indicating that the de-normalization and generation pipeline preserve non-negativity.
-- **Monotonicity across levels:**
-  - A large majority of minutes satisfy monotone asks (SP1 ≤ SP2 ≤ … ≤ SP5) and monotone bids (BP1 ≥ BP2 ≥ … ≥ BP5).
-  - Occasional violations do occur but at low frequencies, comparable to (or only slightly above) what might appear in noisy real data.
+| Ticker | Date       | frac_crossed_book | frac_neg_vol | frac_ask_mono | frac_bid_mono |
+|--------|------------|-------------------|--------------|---------------|---------------|
+| 0050   | 2024-01-02 | 0.00              | 0.00         | 0.0075        | 0.00          |
+| 0050   | 2024-02-20 | 0.00              | 0.00         | 0.00          | 0.00          |
+| 0050   | 2024-03-29 | 0.00              | 0.00         | 0.00          | 0.00          |
+| 0056   | 2024-01-02 | 0.68              | 0.00         | 0.00          | 0.00          |
+| 0056   | 2024-02-20 | 0.64              | 0.00         | 0.00          | 0.00          |
+| 0056   | 2024-03-29 | 0.73              | 0.00         | 0.00          | 0.00          |
+| 2330   | 2024-01-02 | 0.26              | 0.00         | 0.0415        | 0.75          |
+| 2330   | 2024-02-20 | 0.25              | 0.00         | 0.0113        | 0.00          |
+| 2330   | 2024-03-29 | 0.21              | 0.00         | 0.0151        | 0.0113        |
 
-These diagnostics suggest that the generator has internalized key invariants of a valid limit order book, not just marginal distributions of individual features.
+Interpretation:
+
+- For 0050, the generator respects basic structural constraints almost perfectly: no crossed books, no negative volumes, and very rare monotonicity violations.
+- For 0056, the generator produces a **large fraction of crossed books** (more than 60% of minutes), which is a serious structural deficiency, even though volumes remain non‑negative.
+- For 2330, crossed-book frequencies are lower than for 0056 but still substantial (about 20–26% of minutes), and ask monotonicity is only occasionally satisfied, although bid monotonicity is good on one of the three days.
 
 ### Overall assessment
 
 Putting the visual and structural evidence together:
 
-- The GAN produces **structurally coherent** synthetic books that respect basic market microstructure constraints.
-- It captures **coarse intraday patterns** in spreads and order-flow pressures and yields reasonable depth profiles at the snapshot level.
-- It tends to **smooth out extreme or very short-lived events**, and tail behavior in prices and liquidity remains somewhat under-represented.
+- The GAN produces **structurally coherent** synthetic books for 0050 (and partly for 2330) in terms of non-negative volumes and mostly non-crossed quotes, and it captures **coarse intraday patterns** in spreads and order-flow pressures for all three tickers.
+- However, the very high crossed-book fractions for 0056 and the non-trivial crossed-book rates for 2330 highlight that the generator does not uniformly respect price ordering constraints across all instruments.
+- It also tends to **smooth out extreme or very short-lived events**, and tail behavior in prices and liquidity remains somewhat under-represented.
 
-From an assignment perspective, this level of performance supports the conclusion that the trained GAN is a useful tool for generating realistic intraday LOB scenarios, while also highlighting where more advanced architectures or loss functions (e.g., explicit tail penalties or additional microstructure constraints) might further improve realism.
-
----
-
-## How the notebook addresses the assignment questions
-
-- **Q1:**
-  - Provides trained GAN models for the three tickers and uses loss and return diagnostics to argue that training is stable and that basic return distributions are matched reasonably well.
-
-- **Q2:**
-  - Uses the trained discriminator as an anomaly detector for daily LOB sequences, then compares a set of economically meaningful microstructure variables between abnormal and normal days.
-  - The discussion focuses on how volatility, spreads, and order-flow pressures differ between the two groups and why those differences are plausible.
-
-- **Q3:**
-  - Evaluates synthetic order books via time-series plots, depth-curve comparisons, and structural consistency checks.
-  - The interpretation emphasizes both strengths (structural validity, realistic coarse patterns) and weaknesses (smoothing of extremes, limited tail realism).
-
-This writeup is intentionally focused on interpretation and discussion; detailed implementation steps and file paths are documented in the code itself rather than repeated here.
+From an assignment perspective, these diagnostics show both the **strengths** (0050 in particular) and **limitations** (notably 0056) of the trained GAN as a tool for generating realistic intraday LOB scenarios and suggest that adding explicit structural penalties or constraints could meaningfully improve realism.
