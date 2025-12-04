@@ -16,7 +16,7 @@ The learning rates were tuned to get stable, non-divergent adversarial training;
 
 ### Training behavior (loss curves)
 
-Using the CSVs in `q1_notebook_outputs/<ticker>/*_train_g_d.csv` and `*_eval_g_d.csv`, the loss trajectories look numerically as follows:
+From the loss CSVs for each ticker, the trajectories look numerically as follows:
 
 - **0050:**
   - `train_g` decreases from about **1.29** at the start to **≈1.08** by the final column, while `eval_g` decreases from **≈1.12** down to **≈0.98**.
@@ -32,7 +32,7 @@ Across all three tickers, losses evolve smoothly (no spikes to huge values or co
 
 ### Distributional behavior of returns
 
-From the return-comparison figures (real vs synthetic) in `q1_notebook_outputs/<ticker>/<ticker>_return.png`:
+From the return-comparison figures (real vs synthetic) for each ticker:
 
 - For 0050 and 0056, synthetic intraday returns cluster in roughly the same **±0.5%–1%** region as the real returns, with only slightly lighter tails.
 - For 2330, the synthetic distribution again matches the bulk (central mass) of the empirical distribution but appears to under-represent the most extreme positive and negative returns.
@@ -50,8 +50,7 @@ The trained discriminator assigns a scalar score to each trading day’s 265×20
 - Days with scores ≤ 0.5 are labeled **abnormal**.
 - Days with scores > 0.5 are labeled **normal**.
 
-On top of this labeling, we look at minute-level microstructure variables and compare their empirical distributions across abnormal vs normal days. The per-ticker and combined summaries are written to
-`q2_notebook_outputs/q2_all_tickers_summary.csv`.
+On top of this labeling, we look at minute-level microstructure variables and compare their empirical distributions across abnormal vs normal days.
 
 ### Microstructure variables
 
@@ -66,12 +65,9 @@ For each minutely snapshot, the following variables are examined:
 - **Order-flow pressure at levels 1–5:** 
   (∑ BVi − ∑ SVi) / (∑ BVi + ∑ SVi) over levels i = 1,…,5.
 
-Moments and KS statistics comparing abnormal vs normal days for each of these appear as rows in
-`q2_all_tickers_summary.csv`.
-
 ### Interpretation of abnormal vs normal days
 
-Key patterns from `q2_all_tickers_summary.csv` can be summarized as follows.
+Key patterns from the summary statistics and KS tests can be summarized as follows.
 
 **Returns (variance and KS tests)**
 
@@ -126,15 +122,9 @@ These properties are economically plausible characteristics of “unusual” tra
 
 The generator is evaluated by comparing **real vs synthetic order books** at both the day and snapshot levels, for the test months 2024-01 to 2024-03 and all three tickers.
 
-The empirical basis for the discussion here is:
-
-- Time-series plots in `q3_notebook_outputs/<ticker>/*_<date>_timeseries.png`.
-- Depth-curve snapshots in `q3_notebook_outputs/<ticker>/*_<date>_snapshot_*.png`.
-- Structural diagnostics summarized in `q3_notebook_outputs/q3_synthetic_quality_diagnostics.csv`.
-
 ### Visual diagnostics: spreads, pressures, and depth
 
-From the representative days and snapshots examined in `q3_notebook_outputs/`:
+From representative days and snapshots:
 
 - **Spreads:**
   - For 0050, on days like **2024-01-02** and **2024-03-29**, synthetic spreads are of similar magnitude to real spreads and broadly follow intraday patterns such as higher spreads near the open and close and narrower spreads mid-session.
@@ -149,7 +139,7 @@ From the representative days and snapshots examined in `q3_notebook_outputs/`:
 
 ### Structural diagnostics
 
-The file `q3_synthetic_quality_diagnostics.csv` quantifies key structural properties for three representative days per ticker:
+Key structural properties for three representative days per ticker are:
 
 | Ticker | Date       | frac_crossed_book | frac_neg_vol | frac_ask_mono | frac_bid_mono |
 |--------|------------|-------------------|--------------|---------------|---------------|
