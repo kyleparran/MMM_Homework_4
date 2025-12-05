@@ -24,6 +24,20 @@ From the loss CSVs for each ticker, the trajectories look numerically as follows
 
 Across all three tickers, losses evolve smoothly (no spikes to huge values or collapses to 0), and generator losses move from higher initial levels into lower, more stable ranges. Discriminator losses shift from their initial 0.25 baseline into new but still moderate bands, indicating that the adversarial game has settled into a reasonably stable regime rather than diverging.
 
+**Figures (loss curves and return distributions)**
+
+![Q1 loss curves for 0050](q1_notebook_outputs/0050/0050_q1_loss_curves.png)
+
+![Q1 loss curves for 0056](q1_notebook_outputs/0056/0056_q1_loss_curves.png)
+
+![Q1 loss curves for 2330](q1_notebook_outputs/2330/2330_q1_loss_curves.png)
+
+![Real vs synthetic intraday returns for 0050](q1_notebook_outputs/0050/0050_return.png)
+
+![Real vs synthetic intraday returns for 0056](q1_notebook_outputs/0056/0056_return.png)
+
+![Real vs synthetic intraday returns for 2330](q1_notebook_outputs/2330/2330_return.png)
+
 ### Distributional behavior of returns
 
 From the return-comparison figures (real vs synthetic) for each ticker:
@@ -130,6 +144,28 @@ From representative days and snapshots:
 
 - **Depth curves:**
   - For most snapshots (e.g., minute 0, 132, and 264 on 0050-2024-01-02), synthetic bid and ask depth curves have realistic shapes: cumulative volume increases smoothly with distance from the midprice, and price levels are ordered as expected on each side.
+
+**Example time-series comparisons (real vs synthetic)**
+
+![0050, 2024-02-20: spreads and order-flow pressures](q3_notebook_outputs/0050/0050_2024-02-20_timeseries.png)
+
+![0056, 2024-02-20: spreads and order-flow pressures](q3_notebook_outputs/0056/0056_2024-02-20_timeseries.png)
+
+![2330, 2024-02-20: spreads and order-flow pressures](q3_notebook_outputs/2330/2330_2024-02-20_timeseries.png)
+
+**Example depth snapshots (real vs synthetic)**
+
+*Structurally clean case — 0050, 2024-01-02*
+
+![0050, 2024-01-02, minute 0](q3_notebook_outputs/0050/0050_2024-01-02_snapshot_000.png)
+
+![0050, 2024-01-02, minute 132](q3_notebook_outputs/0050/0050_2024-01-02_snapshot_132.png)
+
+![0050, 2024-01-02, minute 264](q3_notebook_outputs/0050/0050_2024-01-02_snapshot_264.png)
+
+*Structurally problematic case — 0056, 2024-02-20*
+
+![0056, 2024-02-20, minute 132](q3_notebook_outputs/0056/0056_2024-02-20_snapshot_132.png)
 
 ### Structural diagnostics
 
