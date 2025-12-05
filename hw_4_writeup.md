@@ -1,5 +1,7 @@
 # FINMATH 36701 — Homework 4 Writeup
 
+This report addresses the three main components of Assignment 4: (i) training and evaluating a GAN for intraday limit order book (LOB) data, (ii) using the trained discriminator as an anomaly detector to distinguish normal from abnormal days based on LOB dynamics and microstructure variables, and (iii) assessing the realism of synthetic order books produced by the generator, including structural consistency checks. The sections below are organized accordingly: Q1 covers GAN training and basic distributional fit, Q2 analyzes discriminator-based day-level anomalies and their microstructure signatures, and Q3 evaluates the quality and limitations of the synthetic LOBs.
+
 ## Q1: GAN training and basic evaluation
 
 ### Experimental setup (brief)
@@ -181,3 +183,11 @@ For 0050, the generator respects basic structural constraints almost perfectly: 
 Taken together, the visual and structural evidence indicates that the GAN produces structurally coherent synthetic books for 0050 (and partly for 2330) in terms of non-negative volumes and mostly non-crossed quotes, and it captures coarse intraday patterns in spreads and order-flow pressures for all three tickers. However, the very high crossed-book fractions for 0056 and the non-trivial crossed-book rates for 2330 highlight that the generator does not uniformly respect price ordering constraints across all instruments. It also tends to smooth out extreme or very short-lived events, and tail behavior in prices and liquidity remains somewhat under-represented.
 
 From the perspective of the assignment, these diagnostics show both the strengths (0050 in particular) and limitations (notably 0056) of the trained GAN as a tool for generating realistic intraday LOB scenarios and suggest that adding explicit structural penalties or constraints could meaningfully improve realism.
+
+---
+
+## Summary: how the analysis answers the assignment questions
+
+- Q1 (GAN training and basic evaluation): The loss trajectories for all three tickers are stable and non-divergent, with generator losses declining into a lower, steady range and discriminator losses remaining moderate. Real versus synthetic intraday return distributions match well in terms of means and variances, with some under-representation of extreme moves, which addresses the question of whether the GAN provides a reasonable fit to the basic return behavior.
+- Q2 (discriminator-based anomaly detection): The discriminator scores, combined with a 0.5 threshold, separate days whose return variance, spreads, and especially order-flow pressures differ significantly from the bulk of the sample. The KS tests and moment comparisons demonstrate that identified “abnormal” days have systematically different microstructure characteristics, which aligns with the requirement to show that the discriminator is capturing economically meaningful anomalies rather than noise.
+- Q3 (quality of synthetic order books): Time-series plots of spreads and pressures, depth-curve snapshots, and summary structural diagnostics show that the generator can reproduce realistic intraday patterns and structurally coherent books for some instruments (notably 0050), while generating frequent crossed books and occasional monotonicity violations for others (notably 0056 and, to a lesser extent, 2330). This directly addresses the question of how realistic the synthetic LOBs are and highlights where additional structural constraints or penalties would be needed to meet stricter quality standards.
