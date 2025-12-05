@@ -12,6 +12,17 @@ This report addresses the three main components of Assignment 4: (i) training an
 | 0056   | 2023-10, 2023-11, 2023-12 | 0.00375 | 0.00100 | 50         | 200    | 307  |
 | 2330   | 2023-10, 2023-11, 2023-12 | 0.00300 | 0.00100 | 50         | 200    | 307  |
 
+A minimal example of the training configuration for ticker 0050 is:
+
+```python
+run_cfg = q1_make_run_config(
+    ticker="0050",
+    train_months=["202310", "202311", "202312"],
+    lr_g=0.00375, lr_d=0.00100,
+    batch_size=50, epochs=200, seed=307,
+)
+```
+
 The learning rates were tuned to get stable, non-divergent adversarial training; 2330 uses a slightly lower generator rate because higher rates produced more unstable losses.
 
 ### Training behavior (loss curves)
@@ -60,6 +71,16 @@ The trained discriminator assigns a scalar score to each trading day’s 265×20
 - Days with scores ≤ 0.5 are labeled abnormal.
 - Days with scores > 0.5 are labeled normal.
 
+Daily tensors have the same shape and preprocessing as in the training scripts, for example:
+
+```python
+for date_key, day_df in minutely_df.groupby("date", sort=True):
+    if day_df.shape[0] == 265:          # full trading day
+        daily_arrays.append(day_df.values)
+        daily_dates.append(str(date_key))
+X = np.array(daily_arrays)[:, :, 5:]     # 20 LOB features
+```
+
 On top of this labeling, minute-level microstructure variables are compared across abnormal versus normal days.
 
 ### Microstructure variables
@@ -73,6 +94,15 @@ For each minutely snapshot, the following variables are examined:
 - First difference of spread: one-step change of the spread within a day.
 - Order-flow pressure at level 1: (BV1 − SV1) / (BV1 + SV1).
 - Order-flow pressure at levels 1–5: (∑ BVi − ∑ SVi) / (∑ BVi + ∑ SVi) over levels i = 1,…,5.
+
+These variables are constructed from the raw minutely LOB using simple transformations, for example:
+
+```python
+df["midquote"] = (df["BP1"] + df["SP1"]) / 2
+df["spread"] = df["SP1"] - df["BP1"]
+df["trade_price_return"] = df.groupby("date_str")["lastPx"].pct_change()
+df["pressure_5"] = (bv_sum - sv_sum) / (bv_sum + sv_sum)
+```
 
 ### Interpretation of abnormal vs normal days
 
@@ -125,6 +155,16 @@ Overall, abnormal days, as identified by the discriminator, tend to be those wit
 
 The generator is evaluated by comparing real and synthetic order books at both the day and snapshot levels, for the test months 2024-01 to 2024-03 and all three tickers.
 
+For each stored day, the normalized GAN inputs and their per-day mean and standard deviation are used to generate and de-normalize synthetic LOB paths:
+
+```python
+gen = q3_load_generator_portable(ticker)
+syn_norm = gen(torch.tensor(X_norm, dtype=torch.float32)).detach().cpu().numpy()
+syn_trans = syn_norm * (2.0 * std[:, None, :]) + mean[:, None, :]
+syn_raw = syn_trans.copy()
+syn_raw[:, :, -10:] = np.expm1(syn_trans[:, :, -10:])
+```
+
 ### Visual diagnostics: spreads, pressures, and depth
 
 From representative days and snapshots:
@@ -164,6 +204,15 @@ Structurally problematic case — 0056, 2024-02-20
 
 Key structural properties for three representative days per ticker are:
 
+Before aggregating into fractions, the structural checks for a synthetic day use simple conditions on best quotes and volumes:
+
+```python
+crossed = np.mean(bp1v >= sp1v)               # best bid ≥ best ask
+neg_vol = np.mean(vols < 0)                   # any negative depth
+ask_mono = np.mean(np.all(np.diff(ask_p, 1) >= 0, axis=1))
+bid_mono = np.mean(np.all(np.diff(bid_p, 1) <= 0, axis=1))
+```
+
 | Ticker | Date       | frac_crossed_book | frac_neg_vol | frac_ask_mono | frac_bid_mono |
 |--------|------------|-------------------|--------------|---------------|---------------|
 | 0050   | 2024-01-02 | 0.00              | 0.00         | 0.0075        | 0.00          |
@@ -183,11 +232,3 @@ For 0050, the generator respects basic structural constraints almost perfectly: 
 Taken together, the visual and structural evidence indicates that the GAN produces structurally coherent synthetic books for 0050 (and partly for 2330) in terms of non-negative volumes and mostly non-crossed quotes, and it captures coarse intraday patterns in spreads and order-flow pressures for all three tickers. However, the very high crossed-book fractions for 0056 and the non-trivial crossed-book rates for 2330 highlight that the generator does not uniformly respect price ordering constraints across all instruments. It also tends to smooth out extreme or very short-lived events, and tail behavior in prices and liquidity remains somewhat under-represented.
 
 From the perspective of the assignment, these diagnostics show both the strengths (0050 in particular) and limitations (notably 0056) of the trained GAN as a tool for generating realistic intraday LOB scenarios and suggest that adding explicit structural penalties or constraints could meaningfully improve realism.
-
----
-
-## Summary: how the analysis answers the assignment questions
-
-- Q1 (GAN training and basic evaluation): The loss trajectories for all three tickers are stable and non-divergent, with generator losses declining into a lower, steady range and discriminator losses remaining moderate. Real versus synthetic intraday return distributions match well in terms of means and variances, with some under-representation of extreme moves, which addresses the question of whether the GAN provides a reasonable fit to the basic return behavior.
-- Q2 (discriminator-based anomaly detection): The discriminator scores, combined with a 0.5 threshold, separate days whose return variance, spreads, and especially order-flow pressures differ significantly from the bulk of the sample. The KS tests and moment comparisons demonstrate that identified “abnormal” days have systematically different microstructure characteristics, which aligns with the requirement to show that the discriminator is capturing economically meaningful anomalies rather than noise.
-- Q3 (quality of synthetic order books): Time-series plots of spreads and pressures, depth-curve snapshots, and summary structural diagnostics show that the generator can reproduce realistic intraday patterns and structurally coherent books for some instruments (notably 0050), while generating frequent crossed books and occasional monotonicity violations for others (notably 0056 and, to a lesser extent, 2330). This directly addresses the question of how realistic the synthetic LOBs are and highlights where additional structural constraints or penalties would be needed to meet stricter quality standards.
