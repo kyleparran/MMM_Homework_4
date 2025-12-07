@@ -27,10 +27,13 @@ The learning rates were tuned to get stable, non-divergent adversarial training;
 
 ### Data and Preprocessing
 
-- Full-day selection: only days with exactly 265 minutes are used.
-- Feature slice: the GAN uses 20 LOB features from the minutely data (columns 5–24 in the raw frame — SP/BP/SV/BV across levels 1–5 and related variables), matching the training/testing code.
-- Transform and normalization: `log1p` is applied to the last 10 volume-related columns. Each day is then normalized by its own mean and standard deviation; synthesis in Q3 inverts these steps to recover raw scale.
-- Splits: training months are 2023‑10/11/12; evaluation uses held‑out months 2024‑01/02/03.
+We follow the same simple sequence of steps the code uses to turn raw minutely LOB data into daily inputs and outputs. The list below is the exact order applied in training, evaluation, and synthesis.
+
+1. Select full trading days: keep only days with exactly 265 minutes.
+2. Slice features: use 20 columns from the raw frame (columns 5 to 24; SP, BP, SV, BV across levels 1 to 5, and related variables).
+3. Apply transforms: take `log1p` on the 10 volume related columns.
+4. Normalize per day: subtract the day’s mean and divide by twice the day’s standard deviation; later (Q3) invert using the same per day statistics and `expm1` on the last 10 columns to recover raw scale.
+5. Train/test split: train on 2023-10/11/12; evaluate and score on 2024-01/02/03.
 
 ### Training behavior (loss curves)
 
@@ -258,6 +261,4 @@ From the perspective of the assignment, these diagnostics show both the strength
 
 ### Remedies
 
-- Structural constraints: add auxiliary losses that penalize crossed books (best bid ≥ best ask) and enforce monotonicity across levels (asks non‑decreasing, bids non‑increasing). As a post‑processing fallback, project generated books to the nearest non‑crossed, monotone configuration.
-- Tail awareness: incorporate tail‑sensitive objectives (quantile‑style losses or reweighting extremes) to better capture rare jumps in prices and liquidity.
-- Threshold tuning: for anomaly detection, confirm results across thresholds in [0.4, 0.6] and report abnormal/normal day counts to contextualize KS outcomes.
+The diagnostics point to two concrete issues: crossed books and smoothed tails. A practical fix for crossed books is to add training penalties whenever the best bid is above the best ask and whenever price levels break monotonicity (asks should increase across levels; bids should decrease). If violations persist, a simple post‑processing step can project each synthetic snapshot to the nearest configuration that is non‑crossed and monotone, preserving the overall shape while repairing structure. To address smoothed tails, incorporate objectives that pay extra attention to extremes, such as quantile‑style losses or reweighting rare, large moves in prices and volumes; this helps the generator learn spikes instead of averaging them away. Finally, for anomaly labeling, verify that conclusions are stable across thresholds from 0.4 to 0.6 and accompany results with abnormal versus normal counts so KS outcomes are interpreted in context.
