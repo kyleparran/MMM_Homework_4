@@ -25,6 +25,16 @@ run_cfg = q1_make_run_config(
 
 The learning rates were tuned to get stable, non-divergent adversarial training; 2330 uses a slightly lower generator rate because higher rates produced more unstable losses.
 
+### Data and Preprocessing
+
+We follow the same simple sequence of steps the code uses to turn raw minutely LOB data into daily inputs and outputs. The list below is the exact order applied in training, evaluation, and synthesis.
+
+1. Select full trading days: keep only days with exactly 265 minutes.
+2. Slice features: use 20 columns from the raw frame (columns 5 to 24; SP, BP, SV, BV across levels 1 to 5, and related variables).
+3. Apply transforms: take `log1p` on the 10 volume related columns.
+4. Normalize per day: subtract the day’s mean and divide by twice the day’s standard deviation; later (Q3) invert using the same per day statistics and `expm1` on the last 10 columns to recover raw scale.
+5. Train/test split: train on 2023-10/11/12; evaluate and score on 2024-01/02/03.
+
 ### Training behavior (loss curves)
 
 From the loss CSVs for each ticker, the trajectories look numerically as follows:
@@ -83,6 +93,10 @@ X = np.array(daily_arrays)[:, :, 5:]     # 20 LOB features
 
 On top of this labeling, minute-level microstructure variables are compared across abnormal versus normal days.
 
+#### Threshold Choice
+
+We set the abnormal‑day threshold to 0.5 based on the day‑score distribution and simple sensitivity checks: varying the threshold in the 0.4–0.6 range yields similar rankings and microstructure contrasts while avoiding extremes (too few or too many abnormal days).
+
 ### Microstructure variables
 
 For each minutely snapshot, the following variables are examined:
@@ -104,6 +118,8 @@ df["trade_price_return"] = df.groupby("date_str")["lastPx"].pct_change()
 df["pressure_5"] = (bv_sum - sv_sum) / (bv_sum + sv_sum)
 ```
 
+Interpretation of KS tests: the two‑sample KS statistic measures distributional distance; small p‑values indicate the abnormal and normal samples are unlikely to come from the same distribution. For heavy‑tailed variables (for example, trade size), KS is less informative without filtering; pressure and spread metrics are therefore emphasized.
+
 ### Interpretation of abnormal vs normal days
 
 Key patterns from the summary statistics and KS tests are summarized below.
@@ -112,7 +128,7 @@ Returns (variance and KS tests)
 
 | Ticker | Variable              | Abn. var          | Norm. var         | KS stat | KS p‑value      |
 |--------|-----------------------|-------------------|-------------------|---------|-----------------|
-| 50     | trade_price_returns   | 2.14×10⁻⁷         | 1.87×10⁻⁷         | 0.165   | 1.2×10⁻⁶        |
+| 0050   | trade_price_returns   | 2.14×10⁻⁷         | 1.87×10⁻⁷         | 0.165   | 1.2×10⁻⁶        |
 | 2330   | trade_price_returns   | 9.88×10⁻⁷         | 1.09×10⁻⁶         | 0.103   | 3.8×10⁻⁵        |
 
 These rows show that the return distributions on abnormal days differ measurably from those on normal days, mainly via changes in variance and tails, with KS tests strongly rejecting equality.
@@ -121,8 +137,8 @@ Spreads
 
 | Ticker | Variable        | Abn. mean | Norm. mean | KS stat | KS p‑value |
 |--------|-----------------|-----------|------------|---------|-----------:|
-| 50     | bid_ask_spread  | 0.0696    | 0.0675     | 0.042   | 0.74       |
-| 56     | bid_ask_spread  | 0.0108    | 0.0125     | 0.107   | 0.005      |
+| 0050   | bid_ask_spread  | 0.0696    | 0.0675     | 0.042   | 0.74       |
+| 0056   | bid_ask_spread  | 0.0108    | 0.0125     | 0.107   | 0.005      |
 
 For 0056, abnormal days exhibit a clearly different spread distribution (despite a slightly smaller mean), while for 0050 the mean difference is smaller and the KS test is not significant.
 
@@ -130,8 +146,8 @@ Trade size (means and KS tests)
 
 | Ticker | Abn. mean size | Norm. mean size | KS stat | KS p‑value |
 |--------|----------------|-----------------|---------|-----------:|
-| 50     | 238            | 722             | 0.019   | ≈1.0       |
-| 56     | 8,713          | 2,279           | 0.033   | 0.93       |
+| 0050   | 238            | 722             | 0.019   | ≈1.0       |
+| 0056   | 8,713          | 2,279           | 0.033   | 0.93       |
 
 Trade size is extremely heavy‑tailed in both groups; even with large mean differences, the KS tests indicate that size alone does not sharply separate abnormal from normal days.
 
@@ -139,13 +155,23 @@ Order‑flow pressure (level 1 and 5)
 
 | Ticker | Variable          | Abn. mean | Norm. mean | KS stat | KS p‑value    |
 |--------|-------------------|-----------|------------|---------|--------------:|
-| 50     | pressure_level_5  | 0.107     | 0.060      | 0.167   | 8.2×10⁻⁷      |
-| 56     | pressure_level_1  | 0.125     | −0.143     | 0.195   | 4.0×10⁻⁹      |
+| 0050   | pressure_level_5  | 0.107     | 0.060      | 0.167   | 8.2×10⁻⁷      |
+| 0056   | pressure_level_1  | 0.125     | −0.143     | 0.195   | 4.0×10⁻⁹      |
 | 2330   | pressure_level_5  | 0.046     | −0.138     | 0.376   | 2.1×10⁻⁶⁵     |
 
 Order‑flow pressure metrics show some of the strongest differences between abnormal and normal days: means often change sign or magnitude substantially, and KS p‑values are extremely small, especially for 2330.
 
 Overall, abnormal days, as identified by the discriminator, tend to be those with measurably different return dynamics (variance and tails), distinct spread distributions for some tickers, and pronounced changes in order-flow pressure, particularly at the 5-level aggregate. These are economically plausible characteristics of unusual trading days, which supports the interpretation that the discriminator is capturing meaningful deviations from typical market conditions rather than pure noise.
+
+Abnormal vs normal minute counts (from pressure_level_5 summary):
+
+| Ticker | Abnormal minutes (n) | Normal minutes (n) |
+|--------|----------------------|--------------------|
+| 0050   | 265                  | 14575              |
+| 0056   | 265                  | 14575              |
+| 2330   | 530                  | 14310              |
+
+Reproducibility: the `.env` file specifies `LOB_GAN_DATA_DIR`; seeds are set in the notebook and scripts; outputs are cached under `q1_notebook_outputs`, `q2_notebook_outputs`, `q3_notebook_outputs`, and `cache/`, ensuring reruns reproduce results without recomputation.
 
 ---
 
@@ -232,3 +258,7 @@ For 0050, the generator respects basic structural constraints almost perfectly: 
 Taken together, the visual and structural evidence indicates that the GAN produces structurally coherent synthetic books for 0050 (and partly for 2330) in terms of non-negative volumes and mostly non-crossed quotes, and it captures coarse intraday patterns in spreads and order-flow pressures for all three tickers. However, the very high crossed-book fractions for 0056 and the non-trivial crossed-book rates for 2330 highlight that the generator does not uniformly respect price ordering constraints across all instruments. It also tends to smooth out extreme or very short-lived events, and tail behavior in prices and liquidity remains somewhat under-represented.
 
 From the perspective of the assignment, these diagnostics show both the strengths (0050 in particular) and limitations (notably 0056) of the trained GAN as a tool for generating realistic intraday LOB scenarios and suggest that adding explicit structural penalties or constraints could meaningfully improve realism.
+
+### Remedies
+
+The diagnostics point to two concrete issues: crossed books and smoothed tails. A practical fix for crossed books is to add training penalties whenever the best bid is above the best ask and whenever price levels break monotonicity (asks should increase across levels; bids should decrease). If violations persist, a simple post‑processing step can project each synthetic snapshot to the nearest configuration that is non‑crossed and monotone, preserving the overall shape while repairing structure. To address smoothed tails, incorporate objectives that pay extra attention to extremes, such as quantile‑style losses or reweighting rare, large moves in prices and volumes; this helps the generator learn spikes instead of averaging them away. Finally, for anomaly labeling, verify that conclusions are stable across thresholds from 0.4 to 0.6 and accompany results with abnormal versus normal counts so KS outcomes are interpreted in context.
